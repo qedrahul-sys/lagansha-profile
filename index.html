@@ -1019,6 +1019,32 @@
     .sidebar { width: 250px; }
   }
 
+  .sidebar-close-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: var(--bg);
+    border-radius: 50%;
+    color: var(--text-mid);
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .sidebar-close-btn:hover { background: var(--pink-soft); color: var(--pink); }
+
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 490;
+  }
+  .sidebar-overlay.active { display: block; }
+
   @media (max-width: 850px) {
     .sidebar {
       position: fixed;
@@ -1034,6 +1060,7 @@
     .sidebar.mobile-open { left: 0; }
     .mobile-filter-toggle { display: flex; }
     .container { padding: 20px 16px; }
+    .sidebar-close-btn { display: flex; }
   }
 
   @media (max-width: 700px) {
@@ -1072,7 +1099,10 @@
       <div class="sidebar-title">
         <span class="filter-icon">⊿</span> Refine Search
       </div>
-      <button class="reset-btn" onclick="resetFilters()">RESET</button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="reset-btn" onclick="resetFilters()">RESET</button>
+        <button class="sidebar-close-btn" id="sidebar-close-btn" onclick="closeMobileSidebar()" title="Close filters" aria-label="Close filters">✕</button>
+      </div>
     </div>
 
     <div class="field-label">Search</div>
@@ -1148,6 +1178,8 @@
       <option value="Any">Any</option>
     </select>
   </aside>
+
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
 
   <!-- MAIN FEED -->
   <main class="main">
@@ -2421,6 +2453,12 @@
 
   function toggleMobileSidebar() {
     document.getElementById('sidebar').classList.toggle('mobile-open');
+    document.getElementById('sidebar-overlay').classList.toggle('active');
+  }
+
+  function closeMobileSidebar() {
+    document.getElementById('sidebar').classList.remove('mobile-open');
+    document.getElementById('sidebar-overlay').classList.remove('active');
   }
 
   async function uploadPhoto(file) {
