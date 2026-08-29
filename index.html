@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Matrimonial Profile PDF Generator (Mobile Responsive)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas and jsPDF for Direct PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --heading-color: #dc2626;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0f172a;
+            color: #000000;
+            touch-action: manipulation;
+        }
+
+        /* Fixed 1080x1920 Aspect Ratio Canvas Page - Pure White Background */
+        .pdf-page {
+            width: 1080px;
+            height: 1920px;
+            box-sizing: border-box;
+            background-color: #FFFFFF;
+            position: relative;
+            margin: 0 auto 40px auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            color: #000000;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        /* Scale Wrapper for Live Screen Preview */
+        .preview-scale-wrapper {
+            transform-origin: top center;
+            transition: transform 0.2s ease;
+        }
+
+        /* Section Card Design - Compact padding and crisp layout */
+        .card-box {
+            background: #FFFFFF;
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin-bottom: 16px;
+            border: none;
+            box-shadow: none;
+        }
+
+        /* Card Header Title - Bold Red Heading */
+        .card-title {
+            font-size: 34px;
+            font-weight: 800;
+            color: var(--heading-color, #dc2626);
+            padding-bottom: 6px;
+            border-bottom: 3px solid #fecdd3;
+            margin-top: 0;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Table Grid with High Readability & Large Black Text */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .info-table tr:nth-child(even) {
+            background-color: #fcfcfc;
+        }
+
+        .info-table td {
+            padding: 8px 12px;
+            font-size: 26px;
+            vertical-align: top;
+            line-height: 1.35;
+        }
+
+        .info-label {
+            width: 38%;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .info-value {
+            width: 62%;
+            font-weight: 600;
+            color: #000000;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+
+        /* PRINT STYLES */
+        @media print {
+            @page {
+                size: 1080px 1920px;
+                margin: 0;
+            }
+
+            body {
+                background: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .preview-scale-wrapper {
+                transform: scale(1) !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .pdf-page {
+                box-shadow: none !important;
+                margin: 0 !important;
+                page-break-after: always;
+                page-break-inside: avoid;
+            }
+
+            .pdf-page-3 {
+                page-break-after: avoid !important;
+            }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-slate-900">
+
+    <!-- TOP HEADER / TOOLBAR -->
+    <header class="no-print bg-slate-800 border-b border-slate-700 px-3 md:px-6 py-2.5 md:py-3 flex flex-wrap items-center justify-between gap-2 z-30 shrink-0">
+        <div class="flex items-center space-x-2.5">
+            <div class="p-1.5 md:p-2 bg-red-500/20 text-red-400 rounded-lg">
+                <i class="fa-solid fa-file-pdf text-lg md:text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-sm md:text-lg text-white leading-tight">Matrimonial Profile Generator</h1>
+                <p class="text-[10px] md:text-xs text-slate-400">1080 × 1920 Clean Pure White Template</p>
+            </div>
+        </div>
+
+        <!-- Header Controls Container -->
+        <div class="flex items-center flex-wrap gap-2 w-full md:w-auto justify-between md:justify-end">
+            <!-- Color Theme Selector -->
+            <div class="flex items-center space-x-1.5 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-700">
+                <span class="text-[10px] md:text-xs text-slate-400 font-medium">Theme:</span>
+                <select id="themeSelect" onchange="changeTheme(this.value)" class="bg-transparent text-[11px] md:text-xs text-white outline-none cursor-pointer">
+                    <option value="red">Classic Crimson Red</option>
+                    <option value="maroon">Deep Maroon</option>
+                    <option value="scarlet">Vibrant Scarlet</option>
+                </select>
+            </div>
+
+            <!-- View Mode Zoom Controls -->
+            <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-700 text-[10px] md:text-xs">
+                <button id="btnZoomFit" onclick="autoFitMobileScale()" class="px-2 py-1 rounded text-slate-300 hover:text-white bg-slate-800 font-semibold" title="Fit to Screen Width">Fit</button>
+                <button id="btnZoom25" onclick="setScale(0.25)" class="px-2 py-1 rounded text-slate-400 hover:text-white">25%</button>
+                <button id="btnZoom35" onclick="setScale(0.35)" class="px-2 py-1 rounded text-slate-400 hover:text-white">35%</button>
+                <button id="btnZoom45" onclick="setScale(0.45)" class="px-2 py-1 rounded text-slate-400 hover:text-white hidden sm:block">45%</button>
+                <button id="btnZoom60" onclick="setScale(0.60)" class="px-2 py-1 rounded text-slate-400 hover:text-white hidden sm:block">60%</button>
+            </div>
+
+            <!-- Direct PDF Action Button -->
+            <button id="generatePdfBtn" onclick="generateDirectPDF()" class="flex-1 md:flex-initial bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold px-3 md:px-5 py-1.5 md:py-2 rounded-lg text-xs md:text-sm flex items-center justify-center space-x-1.5 transition shadow-lg shadow-red-600/30">
+                <i class="fa-solid fa-download"></i>
+                <span>Generate PDF</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MOBILE VIEW MODE TOGGLE TABS (Visible only on mobile screens < 768px) -->
+    <nav class="no-print md:hidden bg-slate-950 border-b border-slate-800 flex text-center z-20 shrink-0">
+        <button id="tabBtnForm" onclick="switchMobileTab('form')" class="flex-1 py-2.5 text-xs font-bold text-red-400 border-b-2 border-red-500 bg-slate-900/60 flex items-center justify-center space-x-2 transition">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span>Edit Profile Details</span>
+        </button>
+        <button id="tabBtnPreview" onclick="switchMobileTab('preview')" class="flex-1 py-2.5 text-xs font-bold text-slate-400 border-b-2 border-transparent hover:text-white flex items-center justify-center space-x-2 transition">
+            <i class="fa-solid fa-eye"></i>
+            <span>Live PDF Preview</span>
+        </button>
+    </nav>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- SIDEBAR FORM EDITOR (Left on Desktop / Tab 1 on Mobile) -->
+        <aside id="formSidebar" class="no-print w-full md:w-96 bg-slate-800 border-r border-slate-700 overflow-y-auto p-4 md:p-5 shrink-0 custom-scrollbar block">
+            <h2 class="text-xs md:text-sm uppercase tracking-wider text-red-400 font-bold mb-4 flex items-center justify-between">
+                <span>Edit Profile Details</span>
+                <i class="fa-solid fa-pen-to-square"></i>
+            </h2>
+
+            <!-- Sample Data Action Buttons -->
+            <div class="flex items-center space-x-2 mb-6">
+                <button type="button" onclick="fillDummyData()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-3 rounded-lg text-xs flex items-center justify-center space-x-2 transition shadow-lg shadow-emerald-600/20">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Fill Sample Data</span>
+                </button>
+                <button type="button" onclick="clearAllData()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2.5 px-3 rounded-lg text-xs transition">
+                    Clear
+                </button>
+            </div>
+
+            <form id="editorForm" class="space-y-6 text-xs" onsubmit="event.preventDefault();">
+                
+                <!-- 1. BASIC INFORMATION -->
+                <div class="space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">1. Basic Information</h3>
+                    <div>
+                        <label class="text-slate-400">Full Name</label>
+                        <input type="text" data-bind="fullName" value="" placeholder="e.g. Rahul Sharma" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400">Gender</label>
+                            <input type="text" data-bind="gender" value="" placeholder="e.g. Male / Female" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Height</label>
+                            <input type="text" data-bind="height" value="" placeholder="e.g. 5 ft 10 in" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400">Date of Birth</label>
+                            <input type="text" data-bind="dob" value="" placeholder="e.g. 15 Aug 1998" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Age</label>
+                            <input type="text" data-bind="age" value="" placeholder="e.g. 28 Years" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Marital Status</label>
+                        <select data-bind="maritalStatus" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                            <option value="">-- Select --</option>
+                            <option value="Never Married">Never Married</option>
+                            <option value="Divorced">Divorced</option>
+                            <option value="Widowed">Widowed</option>
+                            <option value="Awaiting Divorce">Awaiting Divorce</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400">Religion</label>
+                            <input type="text" data-bind="religion" value="" placeholder="e.g. Hindu" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Mother Tongue</label>
+                            <input type="text" data-bind="motherTongue" value="" placeholder="e.g. Hindi" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Caste & Sub-Caste</label>
+                        <input type="text" data-bind="casteSubcaste" value="" placeholder="e.g. Brahmin (Gaur)" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                </div>
+
+                <!-- 2. EDUCATION & PROFESSIONAL BACKGROUND -->
+                <div class="space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">2. Education & Career</h3>
+                    <div>
+                        <label class="text-slate-400">Qualification</label>
+                        <input type="text" data-bind="qualification" value="" placeholder="e.g. B.Tech in Computer Science" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">College Name</label>
+                        <input type="text" data-bind="collegeName" value="" placeholder="e.g. Delhi Technological University" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Occupation Type</label>
+                        <select data-bind="occupationType" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                            <option value="">-- Select --</option>
+                            <option value="Private Sector">Private Sector</option>
+                            <option value="Government">Government</option>
+                            <option value="Business">Business</option>
+                            <option value="Defence">Defence</option>
+                            <option value="Labour">Labour</option>
+                            <option value="Others">Others</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Occupation Details / Title</label>
+                        <input type="text" data-bind="occupationSpecify" value="" placeholder="e.g. Senior UX Designer / Specialist" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Company Name</label>
+                        <input type="text" data-bind="companyName" value="" placeholder="e.g. Adobe Systems" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Work Location</label>
+                        <input type="text" data-bind="workLocation" value="" placeholder="e.g. Bengaluru, Karnataka" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Annual Income</label>
+                        <input type="text" data-bind="annualIncome" value="" placeholder="e.g. ₹ 18 - 22 Lakhs Per Annum" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                </div>
+
+                <!-- 3. FAMILY DETAILS -->
+                <div class="space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">3. Family Details</h3>
+                    <div>
+                        <label class="text-slate-400">Father's Occupation</label>
+                        <input type="text" data-bind="fatherOccupation" value="" placeholder="e.g. Retired Government Officer" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Mother's Occupation</label>
+                        <input type="text" data-bind="motherOccupation" value="" placeholder="e.g. Homemaker" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Siblings</label>
+                        <input type="text" data-bind="siblings" value="" placeholder="e.g. 1 Sister (Married), 1 Brother (Unmarried)" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400">Family Type</label>
+                            <select data-bind="familyType" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                                <option value="">-- Select --</option>
+                                <option value="Nuclear">Nuclear</option>
+                                <option value="Joint Family">Joint Family</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Family Status</label>
+                            <select data-bind="familyStatus" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                                <option value="">-- Select --</option>
+                                <option value="Middle Class">Middle Class</option>
+                                <option value="Upper Class">Upper Class</option>
+                                <option value="Rich">Rich</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Family Values</label>
+                        <select data-bind="familyValues" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                            <option value="">-- Select --</option>
+                            <option value="Moderate">Moderate</option>
+                            <option value="Traditional">Traditional</option>
+                            <option value="Liberal">Liberal</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Address / Location</label>
+                        <input type="text" data-bind="address" value="" placeholder="e.g. Vaishali Nagar, Jaipur, Rajasthan" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                </div>
+
+                <!-- 4. APPEARANCE & LIFESTYLE -->
+                <div class="space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">4. Appearance & Lifestyle</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400">Complexion</label>
+                            <select data-bind="complexion" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                                <option value="">-- Select --</option>
+                                <option value="Very Fair">Very Fair</option>
+                                <option value="Fair">Fair</option>
+                                <option value="Wheatish">Wheatish</option>
+                                <option value="Dusky">Dusky</option>
+                                <option value="Deep">Deep</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Body Type</label>
+                            <select data-bind="bodyType" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                                <option value="">-- Select --</option>
+                                <option value="Slim">Slim</option>
+                                <option value="Athletic">Athletic</option>
+                                <option value="Average">Average</option>
+                                <option value="Heavy">Heavy</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Dietary Habits</label>
+                        <select data-bind="dietaryHabits" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                            <option value="">-- Select --</option>
+                            <option value="Vegetarian">Vegetarian</option>
+                            <option value="Non-Vegetarian">Non-Vegetarian</option>
+                            <option value="Eggetarian">Eggetarian</option>
+                            <option value="Vegan">Vegan</option>
+                            <option value="Jain Vegetarian">Jain Vegetarian</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400">Smoking</label>
+                            <select data-bind="smoking" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                                <option value="">-- Select --</option>
+                                <option value="Non-Smoker">Non-Smoker</option>
+                                <option value="Occasional">Occasional</option>
+                                <option value="Regular">Regular</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Drinking</label>
+                            <select data-bind="drinking" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                                <option value="">-- Select --</option>
+                                <option value="Non-Drinker">Non-Drinker</option>
+                                <option value="Occasional">Occasional</option>
+                                <option value="Regular">Regular</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Physical Status</label>
+                        <select data-bind="physicalStatus" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                            <option value="">-- Select --</option>
+                            <option value="Normal">Normal</option>
+                            <option value="Physically Challenged">Physically Challenged</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 5. HOROSCOPE -->
+                <div class="space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">5. Horoscope</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400">Rashi</label>
+                            <select data-bind="rashi" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                                <option value="">-- Select --</option>
+                                <option value="Aries (Mesh)">Aries (Mesh)</option>
+                                <option value="Taurus (Vrishabh)">Taurus (Vrishabh)</option>
+                                <option value="Gemini (Mithun)">Gemini (Mithun)</option>
+                                <option value="Cancer (Kark)">Cancer (Kark)</option>
+                                <option value="Leo (Simha)">Leo (Simha)</option>
+                                <option value="Virgo (Kanya)">Virgo (Kanya)</option>
+                                <option value="Libra (Tula)">Libra (Tula)</option>
+                                <option value="Scorpio (Vrischika)">Scorpio (Vrischika)</option>
+                                <option value="Sagittarius (Dhanu)">Sagittarius (Dhanu)</option>
+                                <option value="Capricorn (Makar)">Capricorn (Makar)</option>
+                                <option value="Aquarius (Kumbh)">Aquarius (Kumbh)</option>
+                                <option value="Pisces (Meen)">Pisces (Meen)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Manglik Status</label>
+                            <select data-bind="manglikStatus" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                                <option value="">-- Select --</option>
+                                <option value="Not Manglik">Not Manglik</option>
+                                <option value="Manglik">Manglik</option>
+                                <option value="Partial Manglik">Partial Manglik</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Gothra</label>
+                        <input type="text" data-bind="gothra" value="" placeholder="e.g. Vatsa" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400">Place of Birth</label>
+                            <input type="text" data-bind="placeOfBirth" value="" placeholder="e.g. Jaipur, Rajasthan" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Time of Birth</label>
+                            <input type="text" data-bind="timeOfBirth" value="" placeholder="e.g. 08:45 AM" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. PARTNER PREFERENCES -->
+                <div class="space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">6. Partner Preferences</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400">Partner Age</label>
+                            <input type="text" data-bind="partnerAge" value="" placeholder="e.g. 23 - 27 Years" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Partner Height</label>
+                            <input type="text" data-bind="partnerHeight" value="" placeholder="e.g. 5 ft 2 in - 5 ft 7 in" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Partner Occupation</label>
+                        <input type="text" data-bind="partnerOccupation" value="" placeholder="e.g. Working Professional" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Preferred Education</label>
+                        <input type="text" data-bind="preferredEducation" value="" placeholder="e.g. Graduate / Post-Graduate" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Location</label>
+                        <input type="text" data-bind="partnerLocation" value="" placeholder="e.g. Metro Cities" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Willing to Relocate</label>
+                        <select data-bind="willingToRelocate" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                            <option value="">-- Select --</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 7. FULL SCREEN PHOTO PAGE -->
+                <div class="space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">7. Full Screen Photo (Page 3)</h3>
+                    <div>
+                        <label class="text-slate-400">Upload Full Screen Image</label>
+                        <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(event)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none cursor-pointer text-xs">
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Photo Fit Mode</label>
+                        <select onchange="changePhotoFit(this.value)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none cursor-pointer text-xs">
+                            <option value="cover">Crop to Fit (Cover Screen)</option>
+                            <option value="contain">Entire Photo (Contain)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 8. BRANDING / LOGO -->
+                <div class="space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">8. Page 2 Branding (Logo)</h3>
+                    <div>
+                        <label class="text-slate-400">Upload Logo Image (Choose File)</label>
+                        <input type="file" id="logoFileInput" accept="image/*" onchange="uploadCustomLogo(event)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none cursor-pointer text-xs">
+                    </div>
+                </div>
+
+            </form>
+        </aside>
+
+        <!-- CANVAS PREVIEW AREA (Right on Desktop / Tab 2 on Mobile) -->
+        <main class="flex-1 overflow-auto p-3 sm:p-6 md:p-8 flex justify-center bg-slate-950 hidden md:flex custom-scrollbar" id="previewArea">
+            
+            <div id="scaleWrapper" class="preview-scale-wrapper" style="transform: scale(0.35);">
+                
+                <!-- PAGE 1 (1080px x 1920px) -->
+                <div class="pdf-page" id="pdfPage1">
+                    <div style="padding: 50px 60px;">
+                        
+                        <!-- Header Banner -->
+                        <div class="text-center mb-8 pb-5 border-b-4" style="border-color: var(--heading-color, #dc2626); margin-bottom: 25px; padding-bottom: 20px;">
+                            <h1 class="text-7xl font-extrabold tracking-tight text-black leading-snug py-2" id="view-fullName" style="min-height: 80px; margin-bottom: 12px;"></h1>
+                        </div>
+
+                        <!-- 1. Basic Information -->
+                        <div class="card-box">
+                            <div class="card-title">
+                                <span>1. Basic Information</span>
+                            </div>
+                            <table class="info-table">
+                                <tr>
+                                    <td class="info-label">Full Name:</td>
+                                    <td class="info-value" id="view-fullName-table"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Gender:</td>
+                                    <td class="info-value" id="view-gender"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Height:</td>
+                                    <td class="info-value" id="view-height"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Date of Birth & Age:</td>
+                                    <td class="info-value"><span id="view-dob"></span> <span id="view-age-suffix"></span></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Marital Status:</td>
+                                    <td class="info-value" id="view-maritalStatus"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Religion:</td>
+                                    <td class="info-value" id="view-religion"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Caste & Sub-Caste:</td>
+                                    <td class="info-value" id="view-casteSubcaste"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Mother Tongue:</td>
+                                    <td class="info-value" id="view-motherTongue"></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- 2. Education & Professional Background -->
+                        <div class="card-box">
+                            <div class="card-title">
+                                <span>2. Education & Professional Background</span>
+                            </div>
+                            <table class="info-table">
+                                <tr>
+                                    <td class="info-label">Qualification:</td>
+                                    <td class="info-value" id="view-qualification"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">College Name:</td>
+                                    <td class="info-value" id="view-collegeName"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Occupation Type:</td>
+                                    <td class="info-value" id="view-occupationType"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Occupation Details:</td>
+                                    <td class="info-value" id="view-occupationSpecify"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Company Name:</td>
+                                    <td class="info-value" id="view-companyName"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Work Location:</td>
+                                    <td class="info-value" id="view-workLocation"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Annual Income:</td>
+                                    <td class="info-value" id="view-annualIncome"></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- 3. Family Details -->
+                        <div class="card-box" style="margin-bottom: 0;">
+                            <div class="card-title">
+                                <span>3. Family Details</span>
+                            </div>
+                            <table class="info-table">
+                                <tr>
+                                    <td class="info-label">Father's Occupation:</td>
+                                    <td class="info-value" id="view-fatherOccupation"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Mother's Occupation:</td>
+                                    <td class="info-value" id="view-motherOccupation"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Siblings:</td>
+                                    <td class="info-value" id="view-siblings"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Family Type:</td>
+                                    <td class="info-value" id="view-familyType"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Family Status:</td>
+                                    <td class="info-value" id="view-familyStatus"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Family Values:</td>
+                                    <td class="info-value" id="view-familyValues"></td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Address:</td>
+                                    <td class="info-value" id="view-address"></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- PAGE 2 (1080px x 1920px) -->
+                <div class="pdf-page" id="pdfPage2">
+                    <div style="padding: 50px 60px;" class="h-full flex flex-col justify-between">
+                        
+                        <div>
+                            <!-- 4. Appearance & Lifestyle -->
+                            <div class="card-box">
+                                <div class="card-title">
+                                    <span>4. Appearance & Lifestyle</span>
+                                </div>
+                                <table class="info-table">
+                                    <tr>
+                                        <td class="info-label">Complexion:</td>
+                                        <td class="info-value" id="view-complexion"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Dietary Habits:</td>
+                                        <td class="info-value" id="view-dietaryHabits"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Smoking:</td>
+                                        <td class="info-value" id="view-smoking"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Drinking:</td>
+                                        <td class="info-value" id="view-drinking"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Body Type:</td>
+                                        <td class="info-value" id="view-bodyType"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Physical Status:</td>
+                                        <td class="info-value" id="view-physicalStatus"></td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- 5. Horoscope -->
+                            <div class="card-box">
+                                <div class="card-title">
+                                    <span>5. Horoscope</span>
+                                </div>
+                                <table class="info-table">
+                                    <tr>
+                                        <td class="info-label">Rashi:</td>
+                                        <td class="info-value" id="view-rashi"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Manglik Status:</td>
+                                        <td class="info-value" id="view-manglikStatus"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Gothra:</td>
+                                        <td class="info-value" id="view-gothra"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Place of Birth:</td>
+                                        <td class="info-value" id="view-placeOfBirth"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Time of Birth:</td>
+                                        <td class="info-value" id="view-timeOfBirth"></td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- 6. Partner Preferences -->
+                            <div class="card-box" style="margin-bottom: 0;">
+                                <div class="card-title">
+                                    <span>6. Partner Preferences</span>
+                                </div>
+
+                                <table class="info-table">
+                                    <tr>
+                                        <td class="info-label">Partner Age:</td>
+                                        <td class="info-value" id="view-partnerAge"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Partner Height:</td>
+                                        <td class="info-value" id="view-partnerHeight"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Occupation:</td>
+                                        <td class="info-value" id="view-partnerOccupation"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Preferred Education:</td>
+                                        <td class="info-value" id="view-preferredEducation"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Location:</td>
+                                        <td class="info-value" id="view-partnerLocation"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="info-label">Willing to Relocate:</td>
+                                        <td class="info-value" id="view-willingToRelocate"></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- PAGE 2 BOTTOM LOGO (300px width, centered at bottom) -->
+                        <div class="w-full flex justify-center items-center pt-8 pb-4">
+                            <div id="logoWrapper" class="w-[300px] flex flex-col items-center justify-center">
+                                <img id="view-supabaseLogo" src="" alt="Custom Logo" class="w-[300px] h-auto object-contain hidden">
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- PAGE 3: FULL SCREEN PHOTO PAGE (1080px x 1920px) -->
+                <div class="pdf-page pdf-page-3" id="pdfPage3">
+                    <div class="relative w-full h-full bg-slate-900 overflow-hidden flex items-center justify-center">
+                        <div id="view-fullPhoto" class="w-full h-full" style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'1080\' height=\'1920\' viewBox=\'0 0 1080 1920\'><rect width=\'100%\' height=\'100%\' fill=\'%231e293b\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\' font-size=\'48\' fill=\'%23ffffff\'>Upload Full Screen Photo</text></svg>'); background-size: cover; background-position: center; background-repeat: no-repeat;"></div>
+                        <!-- Bottom Gradient Overlay with Name -->
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-16 text-white text-center">
+                            <h2 class="text-6xl font-extrabold mb-3 tracking-wide" id="view-fullName-photo"></h2>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        function updateBind(input) {
+            const key = input.getAttribute('data-bind');
+            const val = input.value;
+            
+            const targets = document.querySelectorAll(`[id="view-${key}"], [id="view-${key}-table"], [id="view-${key}-photo"]`);
+            targets.forEach(el => {
+                el.innerText = val;
+            });
+
+            // Format DOB and Age together cleanly if age is present
+            if (key === 'dob' || key === 'age') {
+                const ageVal = document.querySelector('[data-bind="age"]')?.value;
+                const ageSuffixEl = document.getElementById('view-age-suffix');
+                if (ageSuffixEl) {
+                    ageSuffixEl.innerText = ageVal ? `(${ageVal})` : '';
+                }
+            }
+        }
+
+        // Upload Custom Logo from local file
+        function uploadCustomLogo(event) {
+            const file = event.target.files[0];
+            const imgEl = document.getElementById('view-supabaseLogo');
+            
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (imgEl) {
+                        imgEl.src = e.target.result;
+                        imgEl.classList.remove('hidden');
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else {
+                if (imgEl) {
+                    imgEl.src = '';
+                    imgEl.classList.add('hidden');
+                }
+            }
+        }
+
+        // Clear All Data
+        function clearAllData() {
+            const inputs = document.querySelectorAll('[data-bind]');
+            inputs.forEach(input => {
+                input.value = '';
+                updateBind(input);
+            });
+            const ageSuffixEl = document.getElementById('view-age-suffix');
+            if (ageSuffixEl) ageSuffixEl.innerText = '';
+
+            // Reset logo inputs & hide image
+            const logoFileInput = document.getElementById('logoFileInput');
+            if (logoFileInput) logoFileInput.value = '';
+            const imgEl = document.getElementById('view-supabaseLogo');
+            if (imgEl) {
+                imgEl.src = '';
+                imgEl.classList.add('hidden');
+            }
+        }
+
+        function fillDummyData() {
+            const dummyData = {
+                fullName: "Rahul Sharma",
+                gender: "Male",
+                height: "5 ft 10 in (178 cm)",
+                dob: "15 August 1998",
+                age: "28 Years",
+                maritalStatus: "Never Married",
+                religion: "Hinduism",
+                motherTongue: "Hindi",
+                casteSubcaste: "Brahmin (Gaur)",
+                qualification: "B.Tech in Computer Science",
+                collegeName: "Delhi Technological University (DTU)",
+                occupationType: "Private Sector",
+                occupationSpecify: "Senior UX Designer / Specialist",
+                companyName: "Adobe Systems",
+                workLocation: "Bengaluru, Karnataka",
+                annualIncome: "₹ 18 - 22 Lakhs Per Annum",
+                fatherOccupation: "Retired Government Officer",
+                motherOccupation: "Homemaker",
+                siblings: "1 Sister (Married), 1 Brother (Unmarried)",
+                familyType: "Nuclear",
+                familyStatus: "Upper Class",
+                familyValues: "Moderate",
+                address: "Vaishali Nagar, Jaipur, Rajasthan",
+                complexion: "Fair",
+                bodyType: "Athletic",
+                dietaryHabits: "Vegetarian",
+                smoking: "Non-Smoker",
+                drinking: "Non-Drinker",
+                physicalStatus: "Normal",
+                rashi: "Leo (Simha)",
+                manglikStatus: "Not Manglik",
+                gothra: "Vatsa",
+                placeOfBirth: "Jaipur, Rajasthan",
+                timeOfBirth: "08:45 AM",
+                partnerAge: "23 - 27 Years",
+                partnerHeight: "5 ft 2 in - 5 ft 7 in",
+                partnerOccupation: "Working Professional",
+                preferredEducation: "Graduate / Post-Graduate",
+                partnerLocation: "Metro Cities (Bengaluru, Delhi NCR, Mumbai)",
+                willingToRelocate: "Yes"
+            };
+
+            Object.keys(dummyData).forEach(key => {
+                const input = document.querySelector(`[data-bind="${key}"]`);
+                if (input) {
+                    input.value = dummyData[key];
+                    updateBind(input);
+                }
+            });
+        }
+
+        // Photo Upload & Fit Mode
+        function previewPhoto(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const photoEl = document.getElementById('view-fullPhoto');
+                    if (photoEl.tagName === 'IMG') {
+                        photoEl.src = e.target.result;
+                    } else {
+                        photoEl.style.backgroundImage = `url("${e.target.result}")`;
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function changePhotoFit(mode) {
+            const photoEl = document.getElementById('view-fullPhoto');
+            if (photoEl.tagName === 'IMG') {
+                if (mode === 'contain') {
+                    photoEl.classList.remove('object-cover');
+                    photoEl.classList.add('object-contain');
+                } else {
+                    photoEl.classList.remove('object-contain');
+                    photoEl.classList.add('object-cover');
+                }
+            } else {
+                photoEl.style.backgroundSize = mode === 'contain' ? 'contain' : 'cover';
+            }
+        }
+
+        // Active scale variable
+        let currentScale = 0.35;
+
+        function setScale(scaleVal) {
+            currentScale = scaleVal;
+            document.getElementById('scaleWrapper').style.transform = `scale(${scaleVal})`;
+            
+            // Highlight active zoom button
+            const buttons = document.querySelectorAll('[id^="btnZoom"]');
+            buttons.forEach(btn => {
+                btn.className = "px-2 py-1 rounded text-slate-400 hover:text-white";
+            });
+
+            if (scaleVal === 0.25) document.getElementById('btnZoom25')?.classList.add('bg-slate-800', 'text-red-400', 'font-semibold');
+            else if (scaleVal === 0.35) document.getElementById('btnZoom35')?.classList.add('bg-slate-800', 'text-red-400', 'font-semibold');
+            else if (scaleVal === 0.45) document.getElementById('btnZoom45')?.classList.add('bg-slate-800', 'text-red-400', 'font-semibold');
+            else if (scaleVal === 0.60) document.getElementById('btnZoom60')?.classList.add('bg-slate-800', 'text-red-400', 'font-semibold');
+        }
+
+        // Calculate auto-fit scale for mobile screens
+        function autoFitMobileScale() {
+            const previewArea = document.getElementById('previewArea');
+            const containerWidth = previewArea ? previewArea.clientWidth - 24 : window.innerWidth - 24;
+            // Target canvas width is 1080px
+            let fitScale = Math.min(Math.max((containerWidth / 1080), 0.18), 0.60);
+            fitScale = Math.round(fitScale * 100) / 100;
+            
+            setScale(fitScale);
+
+            const fitBtn = document.getElementById('btnZoomFit');
+            if (fitBtn) {
+                fitBtn.className = "px-2 py-1 rounded bg-slate-800 text-red-400 font-semibold";
+            }
+        }
+
+        function switchMobileTab(tab) {
+            const formSidebar = document.getElementById('formSidebar');
+            const previewArea = document.getElementById('previewArea');
+            const tabBtnForm = document.getElementById('tabBtnForm');
+            const tabBtnPreview = document.getElementById('tabBtnPreview');
+
+            if (tab === 'form') {
+                formSidebar.classList.remove('hidden');
+                formSidebar.classList.add('block');
+                previewArea.classList.add('hidden');
+                previewArea.classList.remove('flex');
+                
+                tabBtnForm.className = "flex-1 py-2.5 text-xs font-bold text-red-400 border-b-2 border-red-500 bg-slate-900/60 flex items-center justify-center space-x-2 transition";
+                tabBtnPreview.className = "flex-1 py-2.5 text-xs font-bold text-slate-400 border-b-2 border-transparent hover:text-white flex items-center justify-center space-x-2 transition";
+            } else {
+                formSidebar.classList.add('hidden');
+                formSidebar.classList.remove('block');
+                previewArea.classList.remove('hidden');
+                previewArea.classList.add('flex');
+
+                tabBtnForm.className = "flex-1 py-2.5 text-xs font-bold text-slate-400 border-b-2 border-transparent hover:text-white flex items-center justify-center space-x-2 transition";
+                tabBtnPreview.className = "flex-1 py-2.5 text-xs font-bold text-red-400 border-b-2 border-red-500 bg-slate-900/60 flex items-center justify-center space-x-2 transition";
+
+                // Auto fit scale on switching to mobile preview tab
+                if (window.innerWidth < 768) {
+                    setTimeout(autoFitMobileScale, 50);
+                }
+            }
+        }
+
+        // Color Theme Switcher
+        function changeTheme(themeName) {
+            const root = document.documentElement;
+            if (themeName === 'red') {
+                root.style.setProperty('--heading-color', '#dc2626');
+            } else if (themeName === 'maroon') {
+                root.style.setProperty('--heading-color', '#991b1b');
+            } else if (themeName === 'scarlet') {
+                root.style.setProperty('--heading-color', '#ef4444');
+            }
+        }
+
+        async function generateDirectPDF() {
+            const btn = document.getElementById('generatePdfBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>Generating...</span>`;
+            btn.disabled = true;
+
+            const scaleWrapper = document.getElementById('scaleWrapper');
+
+            try {
+                // Temporarily set scale transform to 1 for full quality pixel rendering
+                scaleWrapper.style.transform = 'scale(1)';
+
+                const pages = [
+                    document.getElementById('pdfPage1'),
+                    document.getElementById('pdfPage2'),
+                    document.getElementById('pdfPage3')
+                ];
+
+                let jsPDFClass = null;
+                if (window.jspdf && window.jspdf.jsPDF) {
+                    jsPDFClass = window.jspdf.jsPDF;
+                } else if (typeof window.jsPDF === 'function') {
+                    jsPDFClass = window.jsPDF;
+                }
+
+                if (!jsPDFClass) {
+                    throw new Error("jsPDF constructor could not be resolved.");
+                }
+
+                const pdf = new jsPDFClass({
+                    orientation: 'portrait',
+                    unit: 'px',
+                    format: [1080, 1920],
+                    hotfixes: ["px_scaling"]
+                });
+
+                for (let i = 0; i < pages.length; i++) {
+                    const canvas = await html2canvas(pages[i], {
+                        scale: 1.5,
+                        useCORS: true,
+                        allowTaint: true,
+                        logging: false,
+                        backgroundColor: '#ffffff',
+                        width: 1080,
+                        height: 1920
+                    });
+
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+                    if (i > 0) {
+                        pdf.addPage([1080, 1920], 'portrait');
+                    }
+
+                    pdf.addImage(imgData, 'JPEG', 0, 0, 1080, 1920);
+                }
+
+                // Save generated PDF file
+                pdf.save('Matrimonial_Profile.pdf');
+
+            } catch (err) {
+                console.error("PDF generation error:", err);
+                window.print();
+            } finally {
+                // Restore preview scale transform
+                scaleWrapper.style.transform = `scale(${currentScale})`;
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 768) {
+                const formSidebar = document.getElementById('formSidebar');
+                const previewArea = document.getElementById('previewArea');
+                formSidebar.classList.remove('hidden');
+                formSidebar.classList.add('block');
+                previewArea.classList.remove('hidden');
+                previewArea.classList.add('flex');
+            } else {
+                autoFitMobileScale();
+            }
+        });
+
+        // Initialize theme & blank data on window load
+        window.onload = function() {
+            changeTheme('red');
+            clearAllData();
+            if (window.innerWidth < 768) {
+                autoFitMobileScale();
+            }
+        };
+    </script>
+</body>
+</html>
