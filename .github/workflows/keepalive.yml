@@ -1,0 +1,22 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # Har 3 din me raat 12 baje (UTC) chalega
+    - cron: '0 0 */3 * *'
+  workflow_dispatch: {}   # Manually "Run workflow" button se test karne ke liye
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase project
+        run: |
+          curl -X GET \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/transactions?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+            --fail --silent --show-error
+
+      - name: Confirm success
+        run: echo "Supabase project ping ho gaya — active mark ho jayega."
