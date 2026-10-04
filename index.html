@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lagansha - Discover Your Partner</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1970,19 +1969,106 @@
 </div>
 
 <div id="toast"></div>
-<!-- Supabase JS Library -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
   // ── Supabase Setup ────────────────────────────────────────────────────────
-  const SU = 'https://voarjqebexjlvokbjygf.supabase.co';
-  const SK = 'sb_publishable_-wFEH-vEk9CtonSD1bHwHw_ZPty_t-v';
-  let sb = null;
-  try {
-    if (window.supabase) {
-      sb = window.supabase.createClient(SU, SK, { realtime: { params: { eventsPerSecond: 10 } } });
+  // ⚠️ Yahan apni details bharo (token ko kabhi public repo me push mat karna)
+  const GIST_ID  = '1aac5ea8d820512ab41d305c0e85d2eb';       // gist URL ka aakhri lamba code
+  const GH_TOKEN = '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';  // classic token, sirf "gist" scope
+  // Photos GitHub repo ke folder me jayengi, DB (gist) me sirf URL rahega.
+  // Token me "gist" ke saath "public_repo" scope bhi chahiye (repo public hona chahiye).
+  const PHOTO_OWNER  = 'qedrahul-sys'; // aapka GitHub username
+  const PHOTO_REPO   = 'lagansha-photos';       // jis repo me photos rakhni hain
+  const PHOTO_BRANCH = 'main';
+  const PHOTO_DIR    = 'images';               // repo ke andar folder ka naam
+  const GIST_FILE = 'profiles.json';
+  const GIST_API  = `https://api.github.com/gists/${GIST_ID}`;
+  const POLL_MS   = 30000;               // har 30 sec me naya data check
+
+  const GIST_READY = GIST_ID && !GIST_ID.startsWith('YOUR_') && GH_TOKEN && !GH_TOKEN.startsWith('YOUR_');
+  const PHOTO_READY = GIST_READY && PHOTO_OWNER && !PHOTO_OWNER.startsWith('YOUR_') && PHOTO_REPO && !PHOTO_REPO.startsWith('YOUR_');
+  const PHOTO_BASE  = `https://raw.githubusercontent.com/${PHOTO_OWNER}/${PHOTO_REPO}/${PHOTO_BRANCH}/${PHOTO_DIR}/`;
+  const PHOTO_API   = `https://api.github.com/repos/${PHOTO_OWNER}/${PHOTO_REPO}/contents/${PHOTO_DIR}/`;
+  const GH_HEADERS = {
+    'Authorization': `Bearer ${GH_TOKEN}`,
+    'Accept': 'application/vnd.github+json',
+    'Content-Type': 'application/json'
+  };
+
+  // Photo repo me upload karo, URL wapas do
+  async function githubUploadPhoto(dataUrl) {
+    const name = `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const res = await fetch(PHOTO_API + name, {
+      method: 'PUT',
+      headers: GH_HEADERS,
+      body: JSON.stringify({
+        message: 'Add photo ' + name,
+        content: dataUrl.split(',')[1],
+        branch: PHOTO_BRANCH
+      })
+    });
+    if (!res.ok) throw new Error('Photo upload failed: ' + res.status);
+    return PHOTO_BASE + name;
+  }
+
+  // Purani photo repo se hatao (best effort)
+  async function githubDeletePhoto(url) {
+    if (!PHOTO_READY || !url || !url.startsWith(PHOTO_BASE)) return;
+    try {
+      const name = url.slice(PHOTO_BASE.length).split('?')[0];
+      const info = await fetch(PHOTO_API + name + '?ref=' + PHOTO_BRANCH, { headers: GH_HEADERS, cache: 'no-store' });
+      if (!info.ok) return;
+      const { sha } = await info.json();
+      await fetch(PHOTO_API + name, {
+        method: 'DELETE',
+        headers: GH_HEADERS,
+        body: JSON.stringify({ message: 'Remove photo ' + name, sha, branch: PHOTO_BRANCH })
+      });
+    } catch (e) { console.warn('Photo delete failed:', e); }
+  }
+
+  // Saare profiles Gist se padho
+  async function gistRead() {
+    const res = await fetch(GIST_API, { headers: GH_HEADERS, cache: 'no-store' });
+    if (!res.ok) throw new Error('Gist read failed: ' + res.status);
+    const gist = await res.json();
+    const file = gist.files && gist.files[GIST_FILE];
+    if (!file) return [];
+    let text = file.content;
+    if (file.truncated) {   // badi file ho to raw_url se lo
+      text = await (await fetch(file.raw_url, { cache: 'no-store' })).text();
     }
-  } catch(e) { console.warn("Supabase init fallback:", e); }
+    const parsed = JSON.parse(text || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  }
+
+  // Poora array Gist me wapas likho
+  async function gistWrite(list) {
+    const res = await fetch(GIST_API, {
+      method: 'PATCH',
+      headers: GH_HEADERS,
+      body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(list, null, 2) } } })
+    });
+    if (!res.ok) throw new Error('Gist write failed: ' + res.status);
+  }
+
+  // Read -> modify -> write ko ek ke baad ek chalane ke liye (race se bachne ke liye)
+  let gistQueue = Promise.resolve();
+  let gistBusy = 0;
+  function gistUpdate(mutator) {
+    const run = async () => {
+      gistBusy++;
+      try {
+        const list = await gistRead();
+        const next = mutator(list);
+        await gistWrite(next);
+        return next;
+      } finally { gistBusy--; }
+    };
+    const p = gistQueue.then(run, run);
+    gistQueue = p.catch(() => {});
+    return p;
+  }
 
   // ── State ─────────────────────────────────────────────────────────────────
   let profiles = [];
@@ -2174,50 +2260,36 @@
   }
 
   async function fetchProfiles() {
-    if (!sb) {
+    if (!GIST_READY) {
+      console.warn('GIST_ID / GH_TOKEN set nahi hai, demo data dikha rahe hain.');
       profiles = [...initialMockProfiles];
-      renderProfiles();
-      updateFilterDropdowns();
-      updateFavoriteBadge();
-      return;
-    }
-    try {
-      const { data, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
-      if (error || !data || data.length === 0) {
+    } else {
+      try {
+        const data = await gistRead();
+        profiles = data.length ? data.map(dbToLocal) : [...initialMockProfiles];
+      } catch(err) {
+        console.warn("Using fallback mock data due to network:", err);
         profiles = [...initialMockProfiles];
-      } else {
-        profiles = data.map(dbToLocal);
       }
-    } catch(err) {
-      console.warn("Using fallback mock data due to network:", err);
-      profiles = [...initialMockProfiles];
     }
     renderProfiles();
     updateFilterDropdowns();
     updateFavoriteBadge();
   }
 
+  // Gist me realtime nahi hota, isliye polling
   function setupRT() {
-    if (!sb) return;
-    try {
-      sb.channel('profiles-rt')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, p => {
-          const alreadyExists = profiles.some(x => x.id === p.new.id);
-          if (alreadyExists) return;
-          profiles.unshift(dbToLocal(p.new));
-          updateFilterDropdowns(); renderProfiles();
-        })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, p => {
-          const i = profiles.findIndex(x => x.id === p.new.id);
-          if (i !== -1) profiles[i] = { ...dbToLocal(p.new), liked: profiles[i].liked };
-          updateFilterDropdowns(); renderProfiles();
-        })
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'profiles' }, p => {
-          profiles = profiles.filter(x => x.id !== p.old.id);
-          updateFilterDropdowns(); renderProfiles();
-        })
-        .subscribe();
-    } catch(e) { console.warn("Realtime error:", e); }
+    if (!GIST_READY) return;
+    setInterval(async () => {
+      if (gistBusy || document.hidden) return;
+      try {
+        const data = await gistRead();
+        if (gistBusy) return;
+        const likedIds = new Set(profiles.filter(p => p.liked).map(p => p.id));
+        profiles = data.map(dbToLocal).map(p => ({ ...p, liked: likedIds.has(p.id) }));
+        updateFilterDropdowns(); renderProfiles(); updateFavoriteBadge();
+      } catch(e) { console.warn('Poll error:', e); }
+    }, POLL_MS);
   }
 
   function updateFilterDropdowns() {
@@ -2463,26 +2535,40 @@
     document.getElementById('sidebar-overlay').classList.remove('active');
   }
 
-  async function uploadPhoto(file) {
+  async function compressPhoto(file) {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const MAX = 400;
+          const MAX = 600;
           let w = img.width, h = img.height;
           if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
           else       { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
           const canvas = document.createElement('canvas');
           canvas.width = w; canvas.height = h;
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.82));
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
         };
         img.src = e.target.result;
       };
       reader.onerror = () => { showToast('Photo read failed.', 'danger'); resolve(null); };
       reader.readAsDataURL(file);
     });
+  }
+
+  // Photo chhoti karo, repo me upload karo, sirf URL return karo
+  async function uploadPhoto(file) {
+    const dataUrl = await compressPhoto(file);
+    if (!dataUrl) return null;
+    if (!PHOTO_READY) return dataUrl; // setup nahi hai to purana tarika (base64)
+    try {
+      return await githubUploadPhoto(dataUrl);
+    } catch (err) {
+      console.warn(err);
+      showToast('Photo repo me upload nahi hui, local save hui.', 'danger');
+      return dataUrl;
+    }
   }
 
   function previewPhoto(event, imgId, zoneId, placeholderId, hintId) {
@@ -2562,21 +2648,17 @@
 
     const payload = buildPayload('reg', imgUrl);
 
-    if (sb) {
+    const newRow = { ...payload, id: 'p-' + Date.now(), created_at: new Date().toISOString() };
+    if (GIST_READY) {
       try {
-        const { data, error } = await sb.from('profiles').insert([payload]).select();
-        if (error) throw error;
-        if (data && data[0]) {
-          profiles.unshift(dbToLocal(data[0]));
-        }
+        await gistUpdate(list => { list.unshift(newRow); return list; });
+        profiles.unshift(dbToLocal(newRow));
       } catch (err) {
-        console.warn('DB insert fallback to local:', err);
-        const localItem = { ...payload, id: 'local-' + Date.now(), image: imgUrl };
-        profiles.unshift(dbToLocal(localItem));
+        console.warn('Gist insert failed:', err);
+        showToast('Save failed: ' + err.message, 'danger');
       }
     } else {
-      const localItem = { ...payload, id: 'local-' + Date.now(), image: imgUrl };
-      profiles.unshift(dbToLocal(localItem));
+      profiles.unshift(dbToLocal({ ...newRow, id: 'local-' + Date.now() }));
     }
 
     btn.disabled = false;
@@ -2737,12 +2819,20 @@
     }
 
     const payload = buildPayload('edit', imgUrl);
+    if (imgUrl) { const prev = profiles.find(x => x.id === activeProfileId); if (prev) githubDeletePhoto(prev.img); }
 
-    if (sb && !activeProfileId.startsWith('mock-') && !activeProfileId.startsWith('local-')) {
+    if (GIST_READY && !activeProfileId.startsWith('mock-') && !activeProfileId.startsWith('local-')) {
       try {
-        const { error } = await sb.from('profiles').update(payload).eq('id', activeProfileId);
-        if (error) console.warn("Supabase update error:", error);
-      } catch(err) { console.warn("Update fallback:", err); }
+        const editId = activeProfileId;
+        await gistUpdate(list => {
+          const i = list.findIndex(x => x.id === editId);
+          if (i !== -1) list[i] = { ...list[i], ...payload };  // image na badli ho to purani rahegi
+          return list;
+        });
+      } catch(err) {
+        console.warn("Gist update failed:", err);
+        showToast('Update failed: ' + err.message, 'danger');
+      }
     }
 
     const idx = profiles.findIndex(x => x.id === activeProfileId);
@@ -2778,12 +2868,18 @@
     if (!activeProfileId) return;
     const p = profiles.find(x => x.id === activeProfileId);
 
-    if (sb && !activeProfileId.startsWith('mock-') && !activeProfileId.startsWith('local-')) {
+    if (GIST_READY && !activeProfileId.startsWith('mock-') && !activeProfileId.startsWith('local-')) {
       try {
-        await sb.from('profiles').delete().eq('id', activeProfileId);
-      } catch(e) { console.warn("Delete fallback:", e); }
+        const delId = activeProfileId;
+        await gistUpdate(list => list.filter(x => x.id !== delId));
+      } catch(e) {
+        console.warn("Gist delete failed:", e);
+        showToast('Delete failed: ' + e.message, 'danger');
+        return;
+      }
     }
 
+    if (p) githubDeletePhoto(p.img);
     profiles = profiles.filter(x => x.id !== activeProfileId);
     closeModal('deleteModal');
     updateFilterDropdowns();
