@@ -2,21 +2,27 @@ name: Supabase Keep Alive
 
 on:
   schedule:
-    # Har 3 din me raat 12 baje (UTC) chalega
-    - cron: '0 0 */3 * *'
-  workflow_dispatch: {}   # Manually "Run workflow" button se test karne ke liye
+    # Har 3 din me 03:17 UTC (08:47 AM IST) par chalega
+    - cron: '17 3 */3 * *'
+  workflow_dispatch: {}   # Manually "Run workflow" se test karne ke liye
 
 jobs:
   ping-supabase:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Ping Supabase project
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          curl -X GET \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/transactions?select=id&limit=1" \
-            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "ERROR: SUPABASE_URL ya SUPABASE_KEY secret is repo me set nahi hai."
+            exit 1
+          fi
+          curl "$SUPABASE_URL/rest/v1/profiles?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
             --fail --silent --show-error
 
       - name: Confirm success
-        run: echo "Supabase project ping ho gaya — active mark ho jayega."
+        run: echo "Supabase ping ho gaya."
