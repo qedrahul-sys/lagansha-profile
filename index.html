@@ -1984,6 +1984,14 @@
     }
   } catch(e) { console.warn("Supabase init fallback:", e); }
 
+  // ── Photo upload setup ───────────────────────────────────────────────────
+  // IMPORTANT: the GitHub token must NEVER live in this file — anyone can
+  // view-source a deployed page and steal it. Instead, the browser sends the
+  // photo to this serverless endpoint, which holds the token as a server-side
+  // secret and does the actual GitHub upload. See api/upload-photo.js, and
+  // the deployment note at the end of this file for how to set it up.
+  const PHOTO_UPLOAD_ENDPOINT = '/api/upload-photo';
+
   // ── State ─────────────────────────────────────────────────────────────────
   let profiles = [];
   let activeAgeRange = 'All';
@@ -2463,7 +2471,8 @@
     document.getElementById('sidebar-overlay').classList.remove('active');
   }
 
-  async function uploadPhoto(file) {
+  // Resizes the chosen file down to a small JPEG data URL (same as before).
+  function resizeToDataURL(file) {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -2478,11 +2487,43 @@
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
           resolve(canvas.toDataURL('image/jpeg', 0.82));
         };
+        img.onerror = () => resolve(null);
         img.src = e.target.result;
       };
       reader.onerror = () => { showToast('Photo read failed.', 'danger'); resolve(null); };
       reader.readAsDataURL(file);
     });
+  }
+
+  // Resizes the photo, then sends it to our own serverless endpoint
+  // (PHOTO_UPLOAD_ENDPOINT), which holds the real GitHub token server-side
+  // and pushes the file into the repo. The browser never sees the token —
+  // only the resulting raw.githubusercontent.com URL comes back, and that's
+  // all that gets saved in Supabase's `image` column.
+  async function uploadPhoto(file) {
+    const dataUrl = await resizeToDataURL(file);
+    if (!dataUrl) return null;
+
+    try {
+      const base64Content = dataUrl.split(',')[1]; // strip the "data:image/jpeg;base64," prefix
+      const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const res = await fetch(PHOTO_UPLOAD_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, content: base64Content })
+      });
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '');
+        throw new Error(`Upload proxy failed (${res.status}): ${errBody}`);
+      }
+      const { url } = await res.json();
+      if (!url) throw new Error('Upload proxy returned no url');
+      return url;
+    } catch (err) {
+      console.warn('Photo upload via proxy failed, falling back to base64:', err);
+      showToast('Photo upload failed — saved as base64 instead.', 'danger');
+      return dataUrl;
+    }
   }
 
   function previewPhoto(event, imgId, zoneId, placeholderId, hintId) {
