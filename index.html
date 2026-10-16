@@ -1227,7 +1227,7 @@
       <div class="photo-upload" id="photoZone" onclick="document.getElementById('photoInput').click()">
         <div class="photo-icon">📷</div>
         <div class="photo-label">Upload Profile Photo</div>
-        <div class="photo-hint">Click or drag &amp; drop (JPG, PNG, WebP)</div>
+        <div class="photo-hint">Click or drag &amp; drop (JPG, PNG, WebP) — GitHub repo me save hogi</div>
         <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="previewPhoto(event, 'photoPreview', 'photoZone')">
         <img id="photoPreview" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;inset:0;">
       </div>
@@ -1984,13 +1984,10 @@
     }
   } catch(e) { console.warn("Supabase init fallback:", e); }
 
-  // ── Photo upload setup ───────────────────────────────────────────────────
-  // IMPORTANT: the GitHub token must NEVER live in this file — anyone can
-  // view-source a deployed page and steal it. Instead, the browser sends the
-  // photo to this serverless endpoint, which holds the token as a server-side
-  // secret and does the actual GitHub upload. See api/upload-photo.js, and
-  // the deployment note at the end of this file for how to set it up.
-  const PHOTO_UPLOAD_ENDPOINT = '/api/upload-photo';
+  // ── Photo Storage: Supabase Storage (token ki zarurat nahi) ───────────────
+  // Supabase me public bucket "photos" banana zaroori hai (steps guide me).
+  const PHOTO_BUCKET = 'photos';
+  const PHOTO_DIR    = 'images';
 
   // ── State ─────────────────────────────────────────────────────────────────
   let profiles = [];
@@ -2471,8 +2468,10 @@
     document.getElementById('sidebar-overlay').classList.remove('active');
   }
 
-  // Resizes the chosen file down to a small JPEG data URL (same as before).
-  function resizeToDataURL(file) {
+  // Resizes the chosen image client-side and returns just the base64 payload
+  // (no "data:image/jpeg;base64," prefix) — that's the shape GitHub's
+  // Contents API expects for file content.
+  function resizeToBase64(file) {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -2485,44 +2484,45 @@
           const canvas = document.createElement('canvas');
           canvas.width = w; canvas.height = h;
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.82));
+          resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
         };
         img.onerror = () => resolve(null);
         img.src = e.target.result;
       };
-      reader.onerror = () => { showToast('Photo read failed.', 'danger'); resolve(null); };
+      reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
     });
   }
 
-  // Resizes the photo, then sends it to our own serverless endpoint
-  // (PHOTO_UPLOAD_ENDPOINT), which holds the real GitHub token server-side
-  // and pushes the file into the repo. The browser never sees the token —
-  // only the resulting raw.githubusercontent.com URL comes back, and that's
-  // all that gets saved in Supabase's `image` column.
+  // Photo Supabase Storage ke "photos" bucket me upload hoti hai aur uska public URL
+  // profile ke "image" column me save hota hai (photo khud database me nahi jaati).
   async function uploadPhoto(file) {
-    const dataUrl = await resizeToDataURL(file);
-    if (!dataUrl) return null;
+    if (!sb) {
+      showToast('Supabase connect nahi hai, photo upload nahi ho sakti.', 'danger');
+      return null;
+    }
+    const base64 = await resizeToBase64(file);
+    if (!base64) { showToast('Photo read failed.', 'danger'); return null; }
 
+    const filename = `${PHOTO_DIR}/photo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
     try {
-      const base64Content = dataUrl.split(',')[1]; // strip the "data:image/jpeg;base64," prefix
-      const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
-      const res = await fetch(PHOTO_UPLOAD_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename, content: base64Content })
+      const blob = await (await fetch('data:image/jpeg;base64,' + base64)).blob();
+      const { error } = await sb.storage.from(PHOTO_BUCKET).upload(filename, blob, {
+        contentType: 'image/jpeg',
+        cacheControl: '31536000',
+        upsert: false
       });
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '');
-        throw new Error(`Upload proxy failed (${res.status}): ${errBody}`);
+      if (error) {
+        console.warn('Photo upload failed:', error);
+        showToast('Photo upload nahi ho paayi: ' + error.message, 'danger');
+        return null;
       }
-      const { url } = await res.json();
-      if (!url) throw new Error('Upload proxy returned no url');
-      return url;
+      const { data } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(filename);
+      return data.publicUrl;
     } catch (err) {
-      console.warn('Photo upload via proxy failed, falling back to base64:', err);
-      showToast('Photo upload failed — saved as base64 instead.', 'danger');
-      return dataUrl;
+      console.warn('Photo upload error:', err);
+      showToast('Photo upload me network error aaya.', 'danger');
+      return null;
     }
   }
 
